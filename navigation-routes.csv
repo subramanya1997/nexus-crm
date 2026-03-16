@@ -1,0 +1,7 @@
+name,path,description
+Dashboard,/,Main dashboard with KPI overview and AI insights and pipeline funnel and recent activity
+Contacts,/contacts,Browse and search all contacts with engagement indicators and status filter
+Contact Detail,/contacts/:id,Contact 360 view with engagement score and deals and activity timeline
+Deals,/deals,Browse all deals with health indicators and days-in-stage and stage filter
+Pipeline,/pipeline,Visual Kanban board showing deals as draggable cards organized by stage
+Activities,/activities,Activity log with type filters for calls and emails and meetings and notes
