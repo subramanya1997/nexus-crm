@@ -1,33 +1,4 @@
-declare global {
-  interface Window {
-    AgenticTrust?: {
-      init: (options: AgenticTrustOptions) => void;
-      initAsync: (options: AgenticTrustOptions) => void;
-      destroy: () => void;
-      setContext: (ctx: PageContext) => void;
-      registerTools: (tools: Record<string, (args: Record<string, unknown>) => Promise<unknown>>) => void;
-      registerToolRenderers: (renderers: Record<string, (invocation: ToolInvocation) => { text: string }>) => void;
-    };
-  }
-}
-
-interface AgenticTrustOptions {
-  apiUrl: string;
-  apiKey: string;
-  navigate?: (path: string) => void;
-  captureDom?: boolean;
-  pageContext?: PageContext;
-}
-
-interface PageContext {
-  title: string;
-  url: string;
-  description: string;
-}
-
-interface ToolInvocation {
-  args: Record<string, unknown>;
-}
+import { registerToolRenderers, registerTools } from "@agentictrust/ui";
 
 export function describeCurrentPage(pathname: string): string {
   if (pathname === "/") return "Dashboard with KPI overview, AI insights, pipeline funnel, and recent activity";
@@ -39,14 +10,32 @@ export function describeCurrentPage(pathname: string): string {
   return "Nexus CRM page";
 }
 
-export function registerClientSideTools(navigateFn: (path: string) => void): void {
-  if (!window.AgenticTrust) return;
+function resolveNavigationPath(args: Record<string, unknown>): string {
+  if (typeof args.path === "string" && args.path.trim()) return args.path;
+  if (typeof args.url === "string" && args.url.trim()) {
+    try {
+      const parsed = new URL(args.url, window.location.origin);
+      return parsed.pathname + parsed.search + parsed.hash;
+    } catch {
+      return args.url;
+    }
+  }
+  return "/";
+}
 
-  window.AgenticTrust.registerTools({
-    navigate_to: async ({ path }: Record<string, unknown>) => {
-      const p = String(path ?? "/");
-      navigateFn(p);
-      return { success: true, navigated_to: p };
+export function registerClientSideTools(navigateFn: (path: string) => void): void {
+  const navigateTool = async (args: Record<string, unknown>) => {
+    const path = resolveNavigationPath(args);
+    navigateFn(path);
+    return { success: true, navigated_to: path };
+  };
+
+  const tools = {
+    navigate: navigateTool,
+    navigate_to: async (args: Record<string, unknown>) => {
+      const path = resolveNavigationPath(args);
+      navigateFn(path);
+      return { success: true, navigated_to: path };
     },
 
     open_new_contact_form: async () => {
@@ -71,9 +60,14 @@ export function registerClientSideTools(navigateFn: (path: string) => void): voi
         url: window.location.href,
       };
     },
-  });
+  };
 
-  window.AgenticTrust.registerToolRenderers({
+  registerTools(tools);
+  if (window.AgenticTrust) {
+    window.AgenticTrust.registerTools(tools);
+  }
+
+  const renderers = {
     list_contacts: () => ({ text: "Searching contacts..." }),
     get_contact: () => ({ text: "Loading contact details..." }),
     create_contact: () => ({ text: "Creating new contact..." }),
@@ -92,5 +86,10 @@ export function registerClientSideTools(navigateFn: (path: string) => void): voi
     get_pipeline_health: () => ({ text: "Checking pipeline health..." }),
     get_stale_deals: () => ({ text: "Finding stale deals..." }),
     suggest_next_action: () => ({ text: "Thinking about next steps..." }),
-  });
+  };
+
+  registerToolRenderers(renderers);
+  if (window.AgenticTrust) {
+    window.AgenticTrust.registerToolRenderers(renderers);
+  }
 }
